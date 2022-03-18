@@ -1,0 +1,8 @@
+opencv-python
+onnxruntime
+youtube-dl
+-e git+https://github.com/mps-youtube/pafy@0580c7247e74f4caa97154ad4fd6763e991198f8#egg=pafy
+tqdm
+h5py
+matplotlib
+scipy
