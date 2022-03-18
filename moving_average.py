@@ -8,6 +8,7 @@ ALPHA = 0.5
 kernel = np.ones((5,5), np.uint8)
 MASKED_UPDATE = True
 NONUI_TOP_PCT = 0.24
+RESET_PCT = 0.1
 
 SAVE_DIR = Path("/namib")
 RAW_DIR = SAVE_DIR / "raw"
@@ -28,6 +29,7 @@ whole_img = np.zeros((HEIGHT, WIDTH, 3), np.uint8)
 thresh_frame = np.zeros((HEIGHT, WIDTH), np.uint8)
 avg = None
 for fn in tqdm(fns):
+    force_update = False
     frame = cv2.imread(str(fn))
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     whole_img[:O_HEIGHT, :O_WIDTH, :] = cv2.resize(frame, (O_WIDTH, O_HEIGHT))
@@ -48,9 +50,13 @@ for fn in tqdm(fns):
     thresh = cv2.erode(thresh, kernel, iterations=1)
     thresh = cv2.dilate(thresh, kernel, iterations=1)
 
+    anomaly_rate = (thresh > 0).sum() / thresh.size
+    if anomaly_rate > RESET_PCT:
+        thresh[:] = 0
+        force_update = True
     thresh_frame[:NONUI_TOP, :] = 0
     thresh_frame[NONUI_TOP:, :] = thresh
-    thresh_info_frame = cv2.putText(cv2.cvtColor(thresh_frame, cv2.COLOR_GRAY2BGR), f"{retval:.2f}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 3)
+    thresh_info_frame = cv2.putText(cv2.cvtColor(thresh_frame, cv2.COLOR_GRAY2BGR), f"{retval:.2f}, {anomaly_rate:.2f}", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 3)
     whole_img[O_HEIGHT:, :O_WIDTH, :] = cv2.resize(thresh_info_frame, (O_WIDTH, O_HEIGHT))
 
     cnts, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -63,7 +69,10 @@ for fn in tqdm(fns):
         if MASKED_UPDATE:
             mask = cv2.rectangle(mask, (x, y), (x+w, y+h), 0, -1)
     if MASKED_UPDATE:
-        avg = cv2.accumulateWeighted(gray, avg, ALPHA, mask)
-    # avg = cv2.accumulateWeighted(gray, avg, ALPHA/10)
+        if force_update:
+            avg = cv2.accumulateWeighted(gray, avg, ALPHA)
+        else:
+            avg = cv2.accumulateWeighted(gray, avg, ALPHA, mask)
+            avg = cv2.accumulateWeighted(gray, avg, ALPHA/10)
     whole_img[O_HEIGHT:, O_WIDTH:, :] = cv2.resize(annot_frame, (O_WIDTH, O_HEIGHT))
     writer.write(whole_img)
