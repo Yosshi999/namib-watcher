@@ -1,0 +1,1 @@
+docker run --rm -it -v /mnt/disk/namib:/namib namib:latest python create_dataset.py
